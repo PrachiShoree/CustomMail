@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Personalizer</title>
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: linear-gradient(to right, #4facfe, #00f2fe);
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+    .container {
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 30px;
+      background: #fff;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+      border-radius: 15px;
+    }
+    h2 {
+      color: #333;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .section {
+      margin: 20px 0;
+    }
+    .button {
+      padding: 14px 28px;
+      margin: 10px 0;
+      cursor: pointer;
+      background: linear-gradient(to right, #ff7eb3, #ff758c);
+      color: white;
+      border: none;
+      border-radius: 25px;
+      font-size: 16px;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+    }
+    .file-input {
+      margin-top: 15px;
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      font-size: 14px;
+    }
+    #data-preview {
+      margin: 20px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fafafa;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 12px;
+      text-align: left;
+    }
+    th {
+      background: #4facfe;
+      color: white;
+    }
+    tr:hover {
+      background: #e0f7fa;
+    }
+    #status {
+      white-space: pre-wrap;
+      background: #f9f9f9;
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 20px;
+      box-shadow: inset 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .email-preview {
+      background: #e3f2fd;
+      border: 1px solid #90caf9;
+      padding: 15px;
+      border-radius: 10px;
+      margin: 15px 0;
+    }
+    h3 {
+      color: #007bff;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>TAILOR - Your Email Personalizer</h2>
+
+  <!-- Step 1: Upload Dataset -->
+  <div class="section">
+    <h3>Upload Dataset</h3>
+    <input type="file" id="file-input" class="file-input" accept=".csv">
+    <p>Ensure your CSV has "Bio" and "Conversation" columns.</p>
+  </div>
+
+  <!-- Step 2: Data Preview -->
+  <div class="section" id="data-preview-section" style="display: none;">
+    <h3>Data Preview</h3>
+    <div id="data-preview"></div>
+  </div>
+
+  <!-- Step 3: Preview Emails -->
+  <div class="section" id="preview-emails-section" style="display: none;">
+    <h3>Preview Emails</h3>
+    <button class="button" id="preview-emails" onclick="previewEmails()">Generate and Preview Emails</button>
+    <div id="emails-preview"></div>
+  </div>
+
+  <!-- Step 4: Send Emails -->
+  <div class="section" id="send-all-section" style="display: none;">
+    <h3>Send Personalized Emails</h3>
+    <button class="button" id="send-all" onclick="sendPersonalizedEmailsToAll()">Send All Emails</button>
+    <div id="status"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+<script>
+  let selectedFileData = [];
+  let columns = [];
+  let emailsPreview = [];
+
+  // Parse CSV using PapaParse for better handling
+  function parseCSV(csvContent) {
+    Papa.parse(csvContent, {
+      header: true,
+      skipEmptyLines: true,
+      complete: function(results) {
+        selectedFileData = results.data;
+        columns = results.meta.fields; // Extract column names
+        if (columns.length > 0) {
+          displayDataPreview();
+        } else {
+          alert('No valid columns found in the CSV file.');
+        }
+      }
+    });
+  }
+
+  // Handle file upload
+  document.getElementById('file-input').addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => parseCSV(e.target.result);
+      reader.readAsText(file);
+      document.getElementById('data-preview-section').style.display = 'block';
+      document.getElementById('preview-emails-section').style.display = 'block';
+      document.getElementById('send-all-section').style.display = 'block';
+    }
+  });
+
+  // Display data preview in a table
+  function displayDataPreview() {
+    const preview = document.getElementById('data-preview');
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    const tbody = document.createElement('tbody');
+
+    // Create table headers
+    const headerRow = document.createElement('tr');
+    columns.forEach(col => {
+      const th = document.createElement('th');
+      th.textContent = col;
+      headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+
+    // Create table rows
+    selectedFileData.forEach(row => {
+      const tr = document.createElement('tr');
+      columns.forEach(col => {
+        const td = document.createElement('td');
+        td.textContent = row[col] || '';
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(thead);
+    table.appendChild(tbody);
+    preview.innerHTML = '';
+    preview.appendChild(table);
+  }
+
+  // Generate email content using row data
+  function generateEmailContent(bio, conversation) {
+    return `Hello,
+
+Based on our last interaction, here is some information relevant to you:
+
+Bio: ${bio}
+
+Last Conversation: ${conversation}
+
+Looking forward to connecting soon!`;
+  }
+
+  // Preview emails for all rows
+  function previewEmails() {
+    const bioColumn = columns.find(col => col.toLowerCase().includes('bio'));
+    const conversationColumn = columns.find(col => col.toLowerCase().includes('conversation'));
+
+    if (!bioColumn || !conversationColumn) {
+      alert('Could not find Bio or Conversation columns. Please check the CSV.');
+      return;
+    }
+
+    const previewSection = document.getElementById('emails-preview');
+    previewSection.innerHTML = ''; // Clear previous previews
+    emailsPreview = []; // Reset previous previews
+
+    selectedFileData.forEach(row => {
+      const emailContent = generateEmailContent(row[bioColumn], row[conversationColumn]);
+
+      emailsPreview.push({ bio: row[bioColumn], content: emailContent });
+
+      const emailDiv = document.createElement('div');
+      emailDiv.classList.add('email-preview');
+      emailDiv.innerHTML = `
+        <strong>Email for ${row[bioColumn]}</strong>
+        <p><strong>Last Conversation:</strong> ${row[conversationColumn]}</p>
+        <p><strong>Email Content:</strong></p>
+        <pre>${emailContent}</pre>
+      `;
+      previewSection.appendChild(emailDiv);
+    });
+  }
+
+  // Send personalized emails to all rows
+  async function sendPersonalizedEmailsToAll() {
+    const status = document.getElementById('status');
+    status.innerHTML = 'Sending personalized emails...';
+
+    for (const email of emailsPreview) {
+      try {
+        const response = await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bio: email.bio,
+            content: email.content
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to send email for Bio: ${email.bio}`);
+        }
+
+        status.innerHTML += `<p>Email sent to ${email.bio}</p>`;
+      } catch (error) {
+        console.error('Error:', error);
+        status.innerHTML += `<p style="color:red;">Error sending email to ${email.bio}</p>`;
+      }
+    }
+
+    status.innerHTML += '<p>All emails processed.</p>';
+  }
+</script>
+
+</body>
+</html>
